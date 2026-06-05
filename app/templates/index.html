@@ -1,0 +1,215 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Food Nutrition Analyzer</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: 'Segoe UI', sans-serif;
+            background: linear-gradient(135deg, #1a1a2e, #16213e, #0f3460);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            padding: 20px;
+        }
+        .container {
+            background: rgba(255,255,255,0.05);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255,255,255,0.1);
+            border-radius: 20px;
+            padding: 40px;
+            width: 100%;
+            max-width: 650px;
+        }
+        h1 { font-size: 1.8rem; margin-bottom: 6px; text-align: center; }
+        .subtitle { color: rgba(255,255,255,0.5); margin-bottom: 25px; font-size: 0.85rem; text-align: center; }
+        .pod-badge {
+            display: block;
+            text-align: center;
+            background: rgba(99,102,241,0.3);
+            border: 1px solid rgba(99,102,241,0.5);
+            padding: 6px 16px;
+            border-radius: 20px;
+            font-size: 0.78rem;
+            margin-bottom: 25px;
+            color: #a5b4fc;
+        }
+        .upload-area {
+            border: 2px dashed rgba(255,255,255,0.2);
+            border-radius: 12px;
+            padding: 35px 20px;
+            cursor: pointer;
+            transition: all 0.3s;
+            margin-bottom: 15px;
+            text-align: center;
+        }
+        .upload-area:hover { border-color: #6366f1; background: rgba(99,102,241,0.05); }
+        .upload-area p { color: rgba(255,255,255,0.5); margin-top: 8px; font-size: 0.85rem; }
+        #preview { max-width: 100%; max-height: 250px; border-radius: 10px; margin: 15px 0; display: none; }
+        button {
+            background: linear-gradient(135deg, #6366f1, #8b5cf6);
+            color: white; border: none;
+            padding: 14px 40px; border-radius: 10px;
+            font-size: 1rem; cursor: pointer;
+            width: 100%; transition: opacity 0.2s;
+        }
+        button:hover { opacity: 0.9; }
+        button:disabled { opacity: 0.5; cursor: not-allowed; }
+        .loading { display: none; text-align: center; color: rgba(255,255,255,0.6); margin-top: 15px; }
+        .results { margin-top: 25px; display: none; }
+        .result-card {
+            background: rgba(255,255,255,0.05);
+            border-radius: 12px;
+            padding: 18px;
+            margin-bottom: 15px;
+            border-left: 3px solid #6366f1;
+        }
+        .result-card.top { border-left-color: #f59e0b; }
+        .food-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 12px;
+        }
+        .food-name { font-size: 1.1rem; font-weight: bold; }
+        .confidence { color: #a5b4fc; font-weight: bold; }
+        .diet-label {
+            display: inline-block;
+            padding: 4px 12px;
+            border-radius: 20px;
+            font-size: 0.8rem;
+            margin-bottom: 10px;
+            background: rgba(255,255,255,0.1);
+        }
+        .nutrition-grid {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 8px;
+            margin: 10px 0;
+        }
+        .nutrition-item {
+            background: rgba(255,255,255,0.05);
+            border-radius: 8px;
+            padding: 8px;
+            text-align: center;
+        }
+        .nutrition-value { font-size: 1rem; font-weight: bold; color: #a5b4fc; }
+        .nutrition-label { font-size: 0.7rem; color: rgba(255,255,255,0.5); margin-top: 2px; }
+        .recommendation {
+            font-size: 0.82rem;
+            color: rgba(255,255,255,0.6);
+            margin-top: 10px;
+            padding-top: 10px;
+            border-top: 1px solid rgba(255,255,255,0.1);
+        }
+        .served-by { text-align: center; font-size: 0.75rem; color: rgba(255,255,255,0.3); margin-top: 15px; }
+    </style>
+</head>
+<body>
+<div class="container">
+    <h1>🍽️ Food Nutrition Analyzer</h1>
+    <p class="subtitle">Powered by AI + Kubernetes Auto-Scaling</p>
+    <span class="pod-badge">🟢 Connected to: {{ pod_name }}</span>
+
+    <div class="upload-area" onclick="document.getElementById('fileInput').click()">
+        <div style="font-size: 2.5rem">📷</div>
+        <p>Klik untuk upload foto makanan</p>
+        <p>JPG, PNG, WEBP supported</p>
+    </div>
+
+    <input type="file" id="fileInput" accept="image/*" style="display:none">
+    <img id="preview" alt="preview">
+
+    <button id="analyzeBtn" disabled onclick="analyze()">🔍 Analisa Nutrisi</button>
+    <div class="loading" id="loading">⏳ Menganalisa makanan...</div>
+
+    <div class="results" id="results">
+        <div id="resultList"></div>
+        <p class="served-by" id="servedBy"></p>
+    </div>
+</div>
+
+<script>
+    const fileInput = document.getElementById('fileInput');
+    const preview = document.getElementById('preview');
+    const analyzeBtn = document.getElementById('analyzeBtn');
+
+    fileInput.addEventListener('change', function() {
+        const file = this.files[0];
+        if (file) {
+            const reader = new FileReader();
+            reader.onload = e => {
+                preview.src = e.target.result;
+                preview.style.display = 'block';
+                analyzeBtn.disabled = false;
+            };
+            reader.readAsDataURL(file);
+        }
+    });
+
+    async function analyze() {
+        const file = fileInput.files[0];
+        if (!file) return;
+
+        analyzeBtn.disabled = true;
+        document.getElementById('loading').style.display = 'block';
+        document.getElementById('results').style.display = 'none';
+
+        const formData = new FormData();
+        formData.append('file', file);
+
+        try {
+            const response = await fetch('/predict', { method: 'POST', body: formData });
+            const data = await response.json();
+            const resultList = document.getElementById('resultList');
+            resultList.innerHTML = '';
+
+            data.results.forEach((item, i) => {
+                const n = item.nutrition;
+                const div = document.createElement('div');
+                div.className = `result-card ${i === 0 ? 'top' : ''}`;
+                div.innerHTML = `
+                    <div class="food-header">
+                        <span class="food-name">${i === 0 ? '🥇' : i === 1 ? '🥈' : '🥉'} ${item.food}</span>
+                        <span class="confidence">${item.confidence}</span>
+                    </div>
+                    <span class="diet-label">${n.diet_label}</span>
+                    <div class="nutrition-grid">
+                        <div class="nutrition-item">
+                            <div class="nutrition-value">${n.calories}</div>
+                            <div class="nutrition-label">Kalori</div>
+                        </div>
+                        <div class="nutrition-item">
+                            <div class="nutrition-value">${n.protein}g</div>
+                            <div class="nutrition-label">Protein</div>
+                        </div>
+                        <div class="nutrition-item">
+                            <div class="nutrition-value">${n.carbs}g</div>
+                            <div class="nutrition-label">Karbo</div>
+                        </div>
+                        <div class="nutrition-item">
+                            <div class="nutrition-value">${n.fat}g</div>
+                            <div class="nutrition-label">Lemak</div>
+                        </div>
+                    </div>
+                    <div class="recommendation">💡 ${n.recommendation}</div>
+                `;
+                resultList.appendChild(div);
+            });
+
+            document.getElementById('servedBy').textContent = `Served by: ${data.pod_name}`;
+            document.getElementById('results').style.display = 'block';
+        } catch(e) {
+            alert('Error: ' + e.message);
+        } finally {
+            document.getElementById('loading').style.display = 'none';
+            analyzeBtn.disabled = false;
+        }
+    }
+</script>
+</body>
+</html>
