@@ -1,0 +1,47 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: food-nutrition
+  labels:
+    app: food-nutrition
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: food-nutrition
+  template:
+    metadata:
+      labels:
+        app: food-nutrition
+    spec:
+      containers:
+      - name: food-nutrition
+        image: astrogurldev/food-nutrition:v1
+        ports:
+        - containerPort: 5000
+        env:
+        - name: POD_NAME
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.name
+        resources:
+          requests:
+            memory: "1Gi"
+            cpu: "250m"
+          limits:
+            memory: "2Gi"
+            cpu: "500m"
+        readinessProbe:
+          httpGet:
+            path: /health
+            port: 5000
+          initialDelaySeconds: 120
+          periodSeconds: 15
+          failureThreshold: 5
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 5000
+          initialDelaySeconds: 180
+          periodSeconds: 20
+          failureThreshold: 3
